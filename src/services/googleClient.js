@@ -166,5 +166,5 @@ export default {
   geocodeAddress,
   searchNearbyRestaurants,
   searchTextRestaurants,
-  getPlaceDetails,
+  getPlaceDetails
 };

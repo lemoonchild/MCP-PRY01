@@ -25,18 +25,22 @@
  */
 export function normalizePlace(raw = {}) {
   return {
-    placeId: raw.placeId ?? null,
-    name: raw.name ?? null,
+    placeId: raw.id ?? null,                       
+    name: raw.displayName?.text ?? null,           
     rating: typeof raw.rating === 'number' ? raw.rating : null,
     userRatingCount: typeof raw.userRatingCount === 'number' ? raw.userRatingCount : 0,
     priceLevel: raw.priceLevel ?? null,
-    location: raw.location ?? null,
-    openNow: typeof raw.openNow === 'boolean' ? raw.openNow : null,
+    location: raw.location
+      ? { lat: raw.location.latitude, lng: raw.location.longitude }
+      : null,                                      
+    openNow: typeof raw.currentOpeningHours?.openNow === 'boolean'
+      ? raw.currentOpeningHours.openNow
+      : null,                                      
     primaryType: raw.primaryType ?? null,
     types: Array.isArray(raw.types) ? raw.types : [],
-    phone: raw.phone ?? null,
-    website: raw.website ?? null,
-    summary: raw.summary ?? null,
+    phone: raw.nationalPhoneNumber ?? null,        
+    website: raw.websiteUri ?? null,               
+    summary: raw.editorialSummary?.text ?? null,   
   };
 }
 
