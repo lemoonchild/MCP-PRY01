@@ -8,7 +8,8 @@
         "start": "node src/index.js",
         "dev": "nodemon src/index.js",
         "lint": "eslint .",
-        "test": "jest"
+        "test": "jest",
+        "build": "mkdir -p dist && cp -r src dist"
     },
     "keywords": [
         "mcp",
@@ -20,6 +21,7 @@
     "author": "Madeline Castro",
     "license": "MIT",
     "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.17.4",
         "axios": "^1.11.0",
         "dotenv": "^16.6.1",
         "express": "^5.1.0",
