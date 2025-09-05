@@ -34,10 +34,23 @@ export function priceToSymbol(priceLevel) {
   return PriceMap[priceLevel]?.symbol ?? '–';
 }
 
-/**
- * Funciones de matching
- */
+// Convertir valores de precios en Q a niveles de economía
+function budgetToAllowedLevels(maxBudget) {
+  if (!maxBudget?.amount || maxBudget.amount <= 0) return null;
+  const amount = maxBudget.amount;
+  const cur = (maxBudget.currency || 'GTQ').toUpperCase();
 
+  const thresholdsGTQ = [
+    { max: 50, levels: [0,1] },
+    { max: 100, levels: [1,2] },
+    { max: 200, levels: [2,3] },
+    { max: Infinity, levels: [3,4] },
+  ];
+
+  const table = (cur === 'GTQ') ? thresholdsGTQ : thresholdsGTQ; 
+  const row = table.find(r => amount <= r.max) || table[table.length - 1];
+  return row.levels;
+}
 // Coincidencia por keywords simples en name/types/summary
 function keywordMatch(place, keywords = []) {
   if (!keywords?.length) return 0;
@@ -59,11 +72,23 @@ function keywordMatch(place, keywords = []) {
   return hits / keywords.length; 
 }
 
-function priceMatch(place, allowedLevels = []) {
-  if (!allowedLevels?.length) return 1; // si no hay preferencia de precio, no penaliza
+function priceMatch(place, allowedLevels = [], budgetLevels = null) {
+
+  let effective = allowedLevels?.length ? new Set(allowedLevels) : null;
+  if (budgetLevels?.length) {
+    const byBudget = new Set(budgetLevels);
+    if (effective) {
+      effective = new Set([...effective].filter(x => byBudget.has(x)));
+    } else {
+      effective = byBudget;
+    }
+  }
+
+  if (!effective || effective.size === 0) return 1;
+
   const lvl = priceToLevel(place.priceLevel);
-  if (lvl === null || lvl === undefined) return 0.5; // sin dato, score intermedio
-  return allowedLevels.includes(lvl) ? 1 : 0;
+  if (lvl === null || lvl === undefined) return 0.5; 
+  return effective.has(lvl) ? 1 : 0;
 }
 
 function qualityScore(rating, reviews) {
@@ -106,16 +131,18 @@ export function scorePlace(place, profile = {}, origin = null) {
     minRating = 0,
     requireOpen = false,
     maxDistanceKm = 3,
+    maxBudget = null,
   } = profile;
 
   const km = origin && place.location ? haversineKm(origin, place.location) : null;
 
-  // Sub-scores
-  const sKeyword = keywordMatch(place, keywords); // 0..1
-  const sPrice = priceMatch(place, priceLevels); // 0..1
-  const sQual = qualityScore(place.rating, place.userRatingCount); // 0..1
-  const sOpen = openScore(place.openNow, requireOpen); // 0..1
-  const sDist = distanceScore(km, maxDistanceKm); // 0..1
+  const budgetLevels = budgetToAllowedLevels(maxBudget);
+
+  const sKeyword = keywordMatch(place, keywords); 
+  const sPrice = priceMatch(place, priceLevels, budgetLevels); 
+  const sQual = qualityScore(place.rating, place.userRatingCount);
+  const sOpen = openScore(place.openNow, requireOpen); 
+  const sDist = distanceScore(km, maxDistanceKm); 
 
   // pesos 
   const w = {
@@ -126,7 +153,6 @@ export function scorePlace(place, profile = {}, origin = null) {
     open: 0.10,
   };
 
-  // rating mínimo hard filter suave: si rating < minRating y existe rating, castigamos
   const ratingPenalty =
     typeof place.rating === 'number' && place.rating < minRating ? 0.6 : 1;
 
