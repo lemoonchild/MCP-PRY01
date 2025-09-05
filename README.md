@@ -157,7 +157,7 @@ Rankea candidatos según el perfil y el origen del usuario.
 * **Abierto (10%)**: si `requireOpen:true`, favorece `openNow===true`.
 * **`minRating`**: penalización suave (0.6×) si el lugar tiene rating < mínimo.
 
-> **Presupuesto `Ej. menor a Q60`**: no hay precios reales en Places; se usa una **heurística** que mapea presupuesto → niveles `priceLevel`. Puedes optar por **filtro duro** (excluir niveles altos) antes de rankear.
+> **Presupuesto `Ej. menor a Q60`**: no hay precios reales en Places; se usa una **heurística** que mapea presupuesto → niveles `priceLevel`. 
 
 ---
 
@@ -177,6 +177,9 @@ Rankea candidatos según el perfil y el origen del usuario.
 
 * Node.js 18+
 * Una **Google API Key** con acceso a **Geocoding API** y **Places API v1**.
+
+  * Puedes generarla en [Google Cloud Console](https://cloud.google.com/).
+  * **Nota importante**: Para crear la API key, Google requiere ingresar una tarjeta de crédito/débito. Se otorgan **\$300 de crédito gratis por 90 días**, y al agotarse el crédito, Google pedirá comenzar a pagar con la tarjeta registrada. 
 
 ### Dependencias
 
