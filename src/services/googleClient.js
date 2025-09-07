@@ -150,7 +150,28 @@ export async function getPlaceDetails(placeId) {
     if (!placeId) throw new ProviderError('getPlaceDetails: placeId requerido');
 
     try {
-      const { data, status } = await httpPlaces.get(`/places/${encodeURIComponent(placeId)}`);
+      const fieldMask = [
+        'id',
+        'displayName',
+        'location',
+        'rating',
+        'userRatingCount',
+        'priceLevel',
+        'currentOpeningHours',
+        'primaryType',
+        'types',
+        'nationalPhoneNumber',
+        'websiteUri',
+        'editorialSummary'
+      ].join(',');
+
+      const { data, status } = await httpPlaces.get(`/places/${encodeURIComponent(placeId)}`, {
+        params: {
+          key: GOOGLE_API_KEY, 
+          fields: fieldMask,  
+        }
+      });
+
       logger.info('google.places.details.ok', { status, placeId });
       return normalizePlaceModel(data);
     } catch (e) {
