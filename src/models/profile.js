@@ -1,21 +1,28 @@
 import { priceToLevel } from '../services/scoring.js';
 
 /**
- * Modelo de perfil de usuario.
- * Ejemplo:
- * {
- *   keywords: ["vegan", "ramen"],
- *   priceLevels: [1, 2],   // acepta INEXPENSIVE y MODERATE
- *   minRating: 4.2,
- *   requireOpen: true,
- *   maxDistanceKm: 3.0
- * }
+ * @fileoverview Defines and normalizes the structure of a user profile used for ranking.
+ * Profiles include user preferences like keywords, price sensitivity, minimum rating,
+ * distance tolerance, and open/closed status.
  */
 
 /**
- * Normaliza el perfil recibido.
- * - Convierte priceLevels de string ("PRICE_LEVEL_MODERATE") a número.
- * - Aplica valores por defecto si faltan campos.
+ * @typedef {Object} UserProfile
+ * @property {string[]} keywords - Preferred food types, cravings, or dietary terms (e.g., ["vegan", "ramen"]).
+ * @property {number[]} priceLevels - Accepted price levels (0 = free, 1 = inexpensive, ... 4 = very expensive).
+ * @property {number} minRating - Minimum acceptable rating (e.g., 4.2).
+ * @property {boolean} requireOpen - Whether the place must be currently open.
+ * @property {number} maxDistanceKm - Maximum acceptable distance from origin (in kilometers).
+ */
+
+/**
+ * Normalizes a user profile by:
+ * - Ensuring all expected fields exist.
+ * - Converting price levels from string to numeric (e.g., "PRICE_LEVEL_MODERATE" → 2).
+ * - Applying default values where needed.
+ *
+ * @param {Object} [profile={}] - Raw profile object received from the user/tool call.
+ * @returns {UserProfile} Normalized profile ready for scoring/ranking.
  */
 export function normalizeProfile(profile = {}) {
   const out = {};
@@ -46,7 +53,11 @@ export function normalizeProfile(profile = {}) {
 }
 
 /**
- * Valida si un perfil tiene al menos una preferencia útil.
+ * Validates whether a profile has at least one meaningful preference.
+ * Used to avoid scoring/ranking when no constraints are provided.
+ *
+ * @param {UserProfile | Object} profile - Profile object to check.
+ * @returns {boolean} `true` if the profile contains useful filters.
  */
 export function isProfileValid(profile = {}) {
   return (

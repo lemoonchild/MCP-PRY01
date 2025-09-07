@@ -7,6 +7,24 @@ import { findNearby, findByText } from "./tools/places.js";
 import { details } from "./tools/details.js";
 import { rank } from "./tools/ranking.js";
 
+/**
+ * @fileoverview MCP Server setup using STDIO transport.
+ * Registers and exposes tools related to food recommendations using Google APIs.
+ */
+
+/**
+ * List of all tools exposed by this MCP server, including:
+ * - geocoding
+ * - nearby search
+ * - text search
+ * - place details
+ * - ranking engine
+ *
+ * Each tool is defined with a JSON Schema describing its expected input.
+ * Used to respond to `tools/list` requests from clients.
+ *
+ * @type {Array<Object>}
+ */
 const toolDefs = [
     {
         name: "geocode",
@@ -89,6 +107,12 @@ const toolDefs = [
     }
 ];
 
+/**
+ * Map of tool names to their corresponding handler functions.
+ * Used to dynamically dispatch calls via `tools/call`.
+ *
+ * @type {Record<string, Function>}
+ */
 const handlerMap = {
   "geocode": geocode,
   "places_findNearby": findNearby,
@@ -97,14 +121,26 @@ const handlerMap = {
   "ranking_rank": rank,
 };
 
+/**
+ * Starts the MCP server using STDIO transport.
+ * Registers handlers for:
+ * - `tools/list`: returns the list of available tools and their schemas.
+ * - `tools/call`: executes the corresponding tool handler.
+ *
+ * If a tool is not found, an error is thrown.
+ *
+ * @returns {Promise<void>}
+ */
 export async function runStdioServer() {
   const server = new Server(
     { name: "mcp-food-recommender", version: "1.0.0" },
     { capabilities: { tools: {} } }
   );
 
+  // Handle "tools/list" requests from the client
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefs }));
 
+  // Handle "tools/call" requests from the client
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const { name, arguments: args } = req.params;
     const handler = handlerMap[name];
@@ -117,6 +153,7 @@ export async function runStdioServer() {
   await server.connect(transport);
 }
 
+// Run the server and handle errors
 runStdioServer().catch((err) => {
   console.error("Error al iniciar food server:", err);
   process.exit(1);

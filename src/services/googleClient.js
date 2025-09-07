@@ -4,18 +4,24 @@ import { normalizePlace as normalizePlaceModel } from '../models/place.js';
 import { logger, withTiming } from '../utils/logger.js';
 import { ConfigError, ProviderError, RateLimitError } from '../utils/errors.js';
 
+/**
+ * @fileoverview Google Client — Integrates with Google Geocoding and Places API v1.
+ * Provides wrappers for geocoding addresses, searching nearby or by text, and fetching place details.
+ */
+
+// Load and validate API key
 const { GOOGLE_API_KEY } = process.env;
 if (!GOOGLE_API_KEY) {
   throw new ConfigError('Falta GOOGLE_API_KEY en el entorno (.env)');
 }
 
-// Axios para Geocoding (legacy)
+// Axios client for legacy Geocoding API
 const httpLegacy = axios.create({
   baseURL: 'https://maps.googleapis.com',
   timeout: 15000,
 });
 
-// Axios para Places API v1 (new)
+// Axios client for Places API v1
 const httpPlaces = axios.create({
   baseURL: 'https://places.googleapis.com/v1',
   timeout: 15000,
@@ -39,7 +45,11 @@ const httpPlaces = axios.create({
 });
 
 /**
- * Geocoding — address -> { lat, lng, formattedAddress }
+ * Converts an address string into geolocation data.
+ *
+ * @param {string} address - The textual address to geocode.
+ * @returns {Promise<{ lat: number, lng: number, formattedAddress: string, raw: any }>}
+ * @throws {ProviderError|RateLimitError}
  */
 export async function geocodeAddress(address) {
   return withTiming('google.geocode', async () => {
@@ -76,7 +86,16 @@ export async function geocodeAddress(address) {
 }
 
 /**
- * Places Nearby — restaurantes cerca de un punto
+ * Searches for restaurants near a given point using Places Nearby Search.
+ *
+ * @param {Object} params
+ * @param {number} params.lat - Latitude.
+ * @param {number} params.lng - Longitude.
+ * @param {number} [params.radius=1500] - Search radius in meters.
+ * @param {boolean} [params.openNow=false] - Whether to filter by currently open places.
+ * @param {number} [params.maxResults=20] - Maximum number of results (max 20).
+ * @returns {Promise<Place[]>}
+ * @throws {ProviderError|RateLimitError}
  */
 export async function searchNearbyRestaurants({
   lat,
@@ -110,7 +129,16 @@ export async function searchNearbyRestaurants({
 }
 
 /**
- * Places Text Search — por keywords/antojos con sesgo de ubicación
+ * Performs a text search for restaurants using freeform queries (e.g. "vegan sushi").
+ *
+ * @param {Object} params
+ * @param {string} params.query - The search text (required).
+ * @param {number} [params.lat] - Optional latitude for biasing results.
+ * @param {number} [params.lng] - Optional longitude for biasing results.
+ * @param {number} [params.radius=2000] - Radius for location bias (meters).
+ * @param {number} [params.maxResults=20] - Maximum results (max 20).
+ * @returns {Promise<Place[]>}
+ * @throws {ProviderError|RateLimitError}
  */
 export async function searchTextRestaurants({
   query,
@@ -143,7 +171,11 @@ export async function searchTextRestaurants({
 }
 
 /**
- * Place Details — información adicional por placeId
+ * Retrieves detailed information about a place using its `placeId`.
+ *
+ * @param {string} placeId - Unique identifier of the place.
+ * @returns {Promise<Place>}
+ * @throws {ProviderError|RateLimitError}
  */
 export async function getPlaceDetails(placeId) {
   return withTiming('google.places.details', async () => {
@@ -183,6 +215,7 @@ export async function getPlaceDetails(placeId) {
   });
 }
 
+// Named export for structured import use
 export default {
   geocodeAddress,
   searchNearbyRestaurants,

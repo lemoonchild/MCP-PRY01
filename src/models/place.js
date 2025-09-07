@@ -1,27 +1,30 @@
 /**
- * Modelo de restaurante normalizado.
- * Viene desde services/googleClient.normalizePlace()
- *
- * Estructura esperada:
- * {
- *   placeId: string,
- *   name: string,
- *   rating: number | null,
- *   userRatingCount: number,
- *   priceLevel: string | null,    // ej. "PRICE_LEVEL_MODERATE"
- *   location: { lat: number, lng: number } | null,
- *   openNow: boolean | null,
- *   primaryType: string | null,
- *   types: string[],
- *   phone: string | null,
- *   website: string | null,
- *   summary: string | null
- * }
+ * @fileoverview Normalized model for a restaurant/place entity.
+ * Used across the MCP Food Recommender to ensure consistent structure from Google Places API v1.
  */
 
 /**
- * Valida y normaliza un objeto Place.
- * Si falta algún campo, se asegura de dar un valor por defecto.
+ * @typedef {Object} Place
+ * @property {string|null} placeId - Unique identifier of the place (from Google).
+ * @property {string|null} name - Display name of the place.
+ * @property {number|null} rating - Average rating (0–5), or null if unavailable.
+ * @property {number} userRatingCount - Total number of user ratings.
+ * @property {string|null} priceLevel - Price category (e.g., "PRICE_LEVEL_MODERATE"), or null.
+ * @property {{ lat: number, lng: number } | null} location - Geographic coordinates, or null.
+ * @property {boolean|null} openNow - Whether the place is currently open. Can be null.
+ * @property {string|null} primaryType - Main type of the place (e.g., "restaurant").
+ * @property {string[]} types - List of place types (e.g., ["restaurant", "mexican"]).
+ * @property {string|null} phone - National phone number.
+ * @property {string|null} website - Website URL.
+ * @property {string|null} summary - Short editorial summary (if available).
+ */
+
+/**
+ * Normalizes raw place data from Google Places API into a standard structure.
+ * Ensures all fields are present, even if null or defaulted.
+ *
+ * @param {Object} [raw={}] - Raw place object from the API.
+ * @returns {Place} Normalized place object.
  */
 export function normalizePlace(raw = {}) {
   return {
@@ -45,7 +48,10 @@ export function normalizePlace(raw = {}) {
 }
 
 /**
- * Chequea si un objeto parece ser un Place válido.
+ * Validates whether the given object conforms to a valid `Place` structure.
+ *
+ * @param {*} obj - Object to validate.
+ * @returns {boolean} `true` if valid, `false` otherwise.
  */
 export function isPlace(obj) {
   return obj && typeof obj === 'object' && typeof obj.placeId === 'string';

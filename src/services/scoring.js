@@ -1,4 +1,16 @@
-// Haversine (distancia en km)
+/**
+ * @fileoverview Scoring utilities for restaurant candidates.
+ * Includes Haversine distance, price mapping, keyword matching,
+ * and ranking functions that return scored and explained results.
+ */
+
+/**
+ * Calculates the distance in kilometers between two coordinates using the Haversine formula.
+ *
+ * @param {{ lat: number, lng: number }} a
+ * @param {{ lat: number, lng: number }} b
+ * @returns {number|null} Distance in kilometers, or null if missing data
+ */
 export function haversineKm(a, b) {
   if (!a || !b) return null;
   const R = 6371;
@@ -15,7 +27,9 @@ export function haversineKm(a, b) {
   return R * c;
 }
 
-// Mapea PRICE_LEVEL_* a símbolo y a un entero
+/**
+ * Price level mapping from Google constants to symbols and integer levels.
+ */
 export const PriceMap = {
   PRICE_LEVEL_FREE: { symbol: '$', level: 0 },
   PRICE_LEVEL_INEXPENSIVE: { symbol: '$', level: 1 },
@@ -24,17 +38,33 @@ export const PriceMap = {
   PRICE_LEVEL_VERY_EXPENSIVE: { symbol: '$$$$', level: 4 },
 };
 
+/**
+ * Converts Google price level string to numeric level (0–4).
+ * @param {string} priceLevel
+ * @returns {number|null}
+ */
 export function priceToLevel(priceLevel) {
   if (!priceLevel) return null;
   return PriceMap[priceLevel]?.level ?? null;
 }
 
+/**
+ * Converts Google price level string to a symbol.
+ * @param {string} priceLevel
+ * @returns {string}
+ */
 export function priceToSymbol(priceLevel) {
   if (!priceLevel) return '–';
   return PriceMap[priceLevel]?.symbol ?? '–';
 }
 
-// Convertir valores de precios en Q a niveles de economía
+
+/**
+ * Converts a monetary budget (e.g. in GTQ) into allowed price levels.
+ *
+ * @param {{ amount: number, currency?: string }} maxBudget
+ * @returns {number[]|null} Array of accepted levels (0–4) or null
+ */
 function budgetToAllowedLevels(maxBudget) {
   if (!maxBudget?.amount || maxBudget.amount <= 0) return null;
   const amount = maxBudget.amount;
@@ -51,7 +81,13 @@ function budgetToAllowedLevels(maxBudget) {
   const row = table.find(r => amount <= r.max) || table[table.length - 1];
   return row.levels;
 }
-// Coincidencia por keywords simples en name/types/summary
+
+/**
+ * Returns keyword match score [0–1] based on how many keywords appear in name/types/summary.
+ * @param {Object} place
+ * @param {string[]} keywords
+ * @returns {number}
+ */
 function keywordMatch(place, keywords = []) {
   if (!keywords?.length) return 0;
   const bag = [
@@ -72,6 +108,10 @@ function keywordMatch(place, keywords = []) {
   return hits / keywords.length; 
 }
 
+/**
+ * Checks if price level is allowed based on preferences and budget.
+ * @returns {number} Score between 0–1
+ */
 function priceMatch(place, allowedLevels = [], budgetLevels = null) {
 
   let effective = allowedLevels?.length ? new Set(allowedLevels) : null;
@@ -91,6 +131,10 @@ function priceMatch(place, allowedLevels = [], budgetLevels = null) {
   return effective.has(lvl) ? 1 : 0;
 }
 
+/**
+ * Computes quality score from rating and review count.
+ * @returns {number}
+ */
 function qualityScore(rating, reviews) {
   if (!rating) return 0;
   const r = Math.min(Math.max(rating, 0), 5); 
@@ -99,30 +143,36 @@ function qualityScore(rating, reviews) {
   return (r / 5) * Math.min(conf, 1);
 }
 
+/**
+ * Computes openNow score based on user preference.
+ * @returns {number}
+ */
 function openScore(openNow, requireOpen) {
   if (!requireOpen) return 1;
   if (openNow === true) return 1;
   if (openNow === false) return 0;
-  return 0.6; // sin dato: score medio-bajo
+  return 0.6; 
 }
 
+/**
+ * Computes distance score, penalizing farther places.
+ * @returns {number}
+ */
 function distanceScore(km, maxKm = 3) {
-  if (km == null) return 0.6; // sin dato
+  if (km == null) return 0.6; 
   if (km <= 0.25) return 1;
   if (km >= maxKm) return 0.1;
-  // decaimiento lineal simple
   return 1 - (km / maxKm) * 0.9; 
 }
 
 /**
- * Calcula score y explicación para un lugar dado un perfil y origen
- * @param {Object} place  (normalizado por googleClient)
- * @param {Object} profile { keywords, priceLevels, minRating, requireOpen }
- *   - keywords: array de strings (cuisines/diets/antojos)
- *   - priceLevels: array de niveles numéricos aceptados (0..4)
- *   - minRating: número, ej. 4.2
- *   - requireOpen: boolean
- * @param {Object} origin { lat, lng } punto del usuario (para distancia)
+ * Computes a weighted score and reason for a candidate place.
+ *
+ * @param {Object} place - A normalized place.
+ * @param {Object} profile - Scoring preferences:
+ *   keywords, priceLevels, minRating, requireOpen, maxDistanceKm, maxBudget
+ * @param {{ lat: number, lng: number }|null} origin - User location for distance
+ * @returns {{ score: number, why: string }}
  */
 export function scorePlace(place, profile = {}, origin = null) {
   const {
@@ -144,7 +194,6 @@ export function scorePlace(place, profile = {}, origin = null) {
   const sOpen = openScore(place.openNow, requireOpen); 
   const sDist = distanceScore(km, maxDistanceKm); 
 
-  // pesos 
   const w = {
     keyword: 0.30,
     price: 0.15,
@@ -178,6 +227,13 @@ export function scorePlace(place, profile = {}, origin = null) {
   return { score, why };
 }
 
+/**
+ * Builds a user-friendly explanation of why a place scored well.
+ *
+ * @param {Object} place
+ * @param {Object} ctx
+ * @returns {string}
+ */
 function buildWhy(place, ctx) {
   const bits = [];
 
@@ -204,16 +260,17 @@ function buildWhy(place, ctx) {
 
   if (place.openNow === true) bits.push('abierto ahora');
 
-  // Construye explicación corta y clara
   return bits.filter(Boolean).join(' · ');
 }
 
 /**
- * Rankea una lista de candidatos y devuelve topK con explicación
- * @param {Array} candidates  lugares normalizados
- * @param {Object} profile    preferencias (ver scorePlace)
- * @param {Object} origin     {lat,lng}
- * @param {number} topK
+ * Ranks a list of normalized candidates using the user's profile and location.
+ *
+ * @param {Object[]} candidates - Array of normalized places.
+ * @param {Object} profile - User preferences.
+ * @param {{ lat: number, lng: number }|null} origin - Location of the user.
+ * @param {number} topK - Max number of items to return.
+ * @returns {Object[]} Ranked candidates with `score` and `why` fields added.
  */
 export function rankAndExplain(candidates = [], profile = {}, origin = null, topK = 10) {
   const scored = candidates
