@@ -1,39 +1,37 @@
 # MCP Food Recommender
 
-Servidor **Model Context Protocol (MCP)** para recomendaciones de comida basado en **Google Maps Platform** (Geocoding + Places API v1) y un **motor de ranking** configurable.
+**Model Context Protocol (MCP)** server for food recommendations based on Google Maps Platform (Geocoding + Places API v1) and a configurable ranking engine.
 
 ---
 
-## ¿Qué es este proyecto?
+## What is this project? 
 
-Un servidor MCP que expone *tools* por **STDIO** para que un cliente (por ejemplo, un CLI o un Chat LLM con soporte MCP) pueda:
+An MCP server that exposes _tools_ via **STDIO** so a client (e.g., a CLI or an MCP-enabled Chat LLM) can:
 
-1. **Geocodificar** direcciones → coordenadas `{ lat, lng }`.
-2. **Buscar restaurantes** por cercanía o texto/antojo.
-3. **Obtener detalles** de un lugar por `placeId` (website, teléfono, etc.).
-4. **Rankear** candidatos con preferencias del usuario (keywords, precio, rating mínimo, distancia, abierto ahora, y presupuesto heurístico).
-
----
-
-## Componentes principales
-
-* **`src/mcp/server.js`**: servidor MCP con `@modelcontextprotocol/sdk` que registra y resuelve las tools.
-* **`src/mcp/tools/*.js`**: implementación de tools (geocode, places, details, ranking).
-* **`src/services/googleClient.js`**: integración con Google (Axios, FieldMasks, normalización de Place).
-* **`src/services/scoring.js`**: motor de ranking/explicación.
-* **`src/models/*.js`**: normalizadores (perfil, lugar, etc.).
-* **`src/utils/*.js`**: logger, errores, helpers.
-* **`src/scripts/*.js`**: pruebas de conexión a geocoding y places API v1. 
-
-> **Nota FieldMask (Places v1)**: para `searchNearby`/`searchText` usa `X-Goog-FieldMask` con prefijo `places.*`. Para `GET /places/{id}` (details), el FieldMask debe **omitir** el prefijo `places.` (porque la respuesta es un `Place`, no `places[]`).
+1. **Geocode addresses** → coordinates { lat, lng }.
+2. **Search** for restaurants by proximity or text/craving.
+3. **Fetch details** of a place by placeId (website, phone, etc.).
+4. **Rank** candidates using user preferences (keywords, price, minimum rating, distance, open now, and heuristic budget).
 
 ---
 
-## Tools expuestas (MCP)
+## Main Components
+
+* **`src/mcp/server.js`**: MCP server using _@modelcontextprotocol/sdk_, registering and resolving tools.
+* **`src/mcp/tools/*.js`**: Tool implementations (geocode, places, details, ranking).
+* **`src/services/googleClient.js`**: Google integration (Axios, FieldMasks, Place normalization).
+* **`src/services/scoring.js`**: Ranking and explanation engine.
+* **`src/models/*.js`**: Normalizers (profile, place, etc.).
+* **`src/utils/*.js`**: Logger, errors, helpers.
+* **`src/scripts/*.js`**: Test scripts for Geocoding and Places API v1 connections.
+
+---
+
+## Exposed Tools (MCP)
 
 ### 1) `geocode`
 
-Convierte dirección a coordenadas.
+Converts an address to coordinates.
 
 ```jsonc
 {
@@ -48,7 +46,7 @@ Convierte dirección a coordenadas.
 
 ### 2) `places_findNearby`
 
-Busca restaurantes cerca de un punto.
+Finds restaurants near a given location.
 
 ```jsonc
 {
@@ -65,7 +63,7 @@ Busca restaurantes cerca de un punto.
 
 ### 3) `places_findByText`
 
-Busca restaurantes por texto/antojos con sesgo de ubicación.
+Searches for restaurants by text/craving with location bias.
 
 ```jsonc
 {
@@ -82,7 +80,7 @@ Busca restaurantes por texto/antojos con sesgo de ubicación.
 
 ### 4) `places_details`
 
-Detalles de un lugar por `placeId`.
+Fetches place details by `placeId`.
 
 ```jsonc
 {
@@ -94,7 +92,7 @@ Detalles de un lugar por `placeId`.
 
 ### 5) `ranking_rank`
 
-Rankea candidatos según el perfil y el origen del usuario.
+Ranks candidates based on the user's profile and origin.
 
 ```jsonc
 {
@@ -138,76 +136,71 @@ Rankea candidatos según el perfil y el origen del usuario.
 
 ---
 
-## ¿Qué preguntas y filtros admite?
+## What questions and filters are supported?
 
-### Búsqueda (Google)
+### Search (Google)
 
-* **Tipo**: `restaurant` (fijo).
-* **Radio**: metros (`radiusMeters`).
-* **Ubicación**: `{ lat, lng }`.
-* **Abierto ahora**: `openNow:true` (solo en Nearby; en Text no existe, se compensa en ranking con `requireOpen`).
-* **Texto/Antojos**: `query` en Text Search.
+* **Type:** restaurant (fixed).
+* **Radius:** meters (radiusMeters).
+* **Location:** { lat, lng }.
+* **Open now:** openNow:true (Nearby only; for Text Search this is handled in ranking with requireOpen).
+* **Text/Craving:** query for Text Search.
 
-### Ranking (preferencias del usuario)
+### Ranking (User preferences)
 
-* **Keywords (30%)**: coincide con nombre/tipos/summary/primaryType.
-* **Precio (15%)**: `priceLevels` (0..4) y **presupuesto** `maxBudget` → niveles estimados por heurística.
-* **Calidad (30%)**: rating ponderado por volumen de reseñas (log).
-* **Distancia (15%)**: Haversine con caída lineal hasta `maxDistanceKm`.
-* **Abierto (10%)**: si `requireOpen:true`, favorece `openNow===true`.
-* **`minRating`**: penalización suave (0.6×) si el lugar tiene rating < mínimo.
+* **Keywords (30%):** match name, types, summary, primaryType.
+* **Price (15%):** priceLevels (0..4) and budget maxBudget → estimated price levels (heuristic).
+* **Quality (30%):** rating weighted by review count (log scale).
+* **Distance (15%):** Haversine with linear decay up to maxDistanceKm.
+* **Open (10%):** if requireOpen:true, favors openNow===true.
+* **minRating:** soft penalty (0.6×) if rating < minimum.
 
-> **Presupuesto `Ej. menor a Q60`**: no hay precios reales en Places; se usa una **heurística** que mapea presupuesto → niveles `priceLevel`. 
-
----
-
-## Ejemplos de consultas del usuario
-
-* “Estoy en *\[dirección]*, quiero **tacos** abiertos ahora, **a menos de 1.5 km**, **baratos** y con **mínimo 4.2**, dame el **top 5**.”
-* “Quiero **ramen vegano** **menor a Q60**, cerca de mí y **abierto ahora**.”
-* “Solo **\$ y \$\$**, **mínimo 4.0**, **a menos de 2 km**, **pizza**.”
-
-> El cliente MCP convierte estas frases en llamadas a `geocode` → `places_*` → `ranking_rank` con los parámetros correspondientes.
+> **Budget (e.g., under Q60)**: Places doesn’t provide real prices; budget → priceLevel mapping is heuristic.
 
 ---
 
-## Instalación
+## Example user queries
 
-### Requisitos
+* “I’m at _[address]_, want tacos that are open now, within 1.5 km, cheap, and at least 4.2 rating, give me top 5.”
+* “Looking for vegan ramen under Q60, near me and open now.”
+* “Only $ and $$, min rating 4.0, within 2 km, pizza.”
+
+> The MCP client converts these phrases into calls: geocode → places_* → ranking_rank with appropriate parameters.
+
+---
+
+## Installation
+
+### Requirements
 
 * Node.js 18+
-* Una **Google API Key** con acceso a **Geocoding API** y **Places API v1**.
+* A **Google API Key** with access to **Geocoding API** and **Places API v1.**
 
-  * Puedes generarla en [Google Cloud Console](https://cloud.google.com/).
-  * **Nota importante**: Para crear la API key, Google requiere ingresar una tarjeta de crédito/débito. Se otorgan **\$300 de crédito gratis por 90 días**, y al agotarse el crédito, Google pedirá comenzar a pagar con la tarjeta registrada. 
+  * Generate one in [Google Cloud Console](https://cloud.google.com/).
+  * **Important:** Creating an API key requires a credit/debit card. Google provides $300 in free credits for 90 days, after which charges will apply.
 
-### Dependencias
+### Dependencies
 
 ```bash
 npm install
 ```
 
-### Variables de entorno (servidor)
+### Environment variables (server)
 
-Crea un `.env` en la carpeta del MCP:
+Create a `.env` file in the MCP folder: 
 
 ```
-GOOGLE_API_KEY=tu_api_key_google
+GOOGLE_API_KEY=your_api_key
 ```
 
 ---
 
-## Build & ejecución del MCP
+## Build & run the MCP
 
-> El cliente MCP leerá `MCP_FOOD_ARGS` apuntando a **`dist/src/index.js`**. Por eso hay que generar un build.
+> The MCP client reads `MCP_FOOD_ARGS` pointing to `dist/src/index.js`, so a build is required.
 
-### 1) Instalar dependencias
 
-```bash
-npm i
-```
-
-### 2) Script de build
+### Build script
 
 ```bash
 npm run build
@@ -215,31 +208,24 @@ npm run build
 
 ---
 
-## Conectar el MCP al cliente (CLI)
+## Connect MCP to client (CLI)
 
-Configura el **cliente MCP** con estas variables (por ejemplo, en `.env` del cliente):
+Configure your **MCP client** with these variables (e.g., in client `.env`):
 
 ```
 # MCP Local
-GOOGLE_API_KEY=tu_api_key_google
+GOOGLE_API_KEY=your_google_api_key
 MCP_FOOD_COMMAND=node
 MCP_FOOD_ARGS=/home/usr/MCP-PRY01/dist/src/index.js 
 ```
 
-> **Importante**: `MCP_FOOD_ARGS` debe apuntar al **archivo build**. Asegúrate de correr `npm run build` en el proyecto MCP antes de iniciar el CLI. Y recuerda que debe de apuntar al index.js de la carpeta dist
+> **Important:** MCP_FOOD_ARGS must point to the built file. Run the build script before starting the CLI, and make sure it points to `dist/index.js`.
+
 ---
 
-## Flujo típico end-to-end
+## Typical end-to-end flow
 
 1. `geocode({ address: "6a Avenida 12-34 Zona 1" })` → `{ lat,lng }`.
 2. `places_findByText({ query: "tacos", location:{lat,lng}, radiusMeters:1500, maxResults:20 })`.
 3. `ranking_rank({ candidates, origin:{lat,lng}, profile:{ keywords:["tacos"], priceLevels:[0,1], minRating:4.2, requireOpen:true, maxDistanceKm:1.5 }, topK:5 })`.
-4. (Opcional) `places_details({ placeId })` para website/teléfono.
-
----
-
-## Notas de diseño
-
-* **Máximo resultados**: 20 (sugerido por Places v1).
-* **Ranking explicable**: campo `why` agrega precio `$…`, rating+reseñas, distancia y match de gustos.
-* **Presupuesto**: `maxBudget` es heurístico; si quieres “filtro duro”, aplícalo antes de rankear.
+4. (Optional) `places_details({ placeId })` for website/phone.
